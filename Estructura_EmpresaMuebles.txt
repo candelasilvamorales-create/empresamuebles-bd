@@ -1,0 +1,282 @@
+DROP DATABASE IF EXISTS empresaMuebles;
+CREATE DATABASE empresaMuebles;
+USE empresaMuebles;
+
+
+CREATE TABLE Clientes (
+    id_cliente INT AUTO_INCREMENT PRIMARY KEY,
+    tipo_cliente ENUM('mayorista', 'minorista') NOT NULL,
+    razon_social VARCHAR(255) NOT NULL,
+    cuit VARCHAR(50) UNIQUE NOT NULL,
+    pais VARCHAR(100),
+    provincia VARCHAR(100),
+    direccion VARCHAR(255)
+);
+
+CREATE TABLE Proveedores (
+    id_proveedor INT AUTO_INCREMENT PRIMARY KEY,
+    tipo_proveedor ENUM('nacional', 'internacional') NOT NULL,
+    razon_social VARCHAR(255) NOT NULL,
+    cuit VARCHAR(50) UNIQUE NOT NULL,
+    pais VARCHAR(100),
+    provincia VARCHAR(100)
+);
+
+
+CREATE TABLE Productos (
+    id_producto INT AUTO_INCREMENT PRIMARY KEY,
+    tipo VARCHAR(50) NOT NULL,       -- p.ej. Silla, Mesa, etc.
+    modelo VARCHAR(100) NOT NULL,    -- p.ej. Nordic, Industrial
+    color VARCHAR(50),               -- p.ej. Blanco, Roble
+    medida VARCHAR(50),              -- p.ej. 45x45x90
+    precio_compra DECIMAL(10,2) NOT NULL,
+    precio_venta  DECIMAL(10,2) NOT NULL,
+    stock INT DEFAULT 0
+);
+
+CREATE TABLE Pedidos (
+    id_pedido INT AUTO_INCREMENT PRIMARY KEY,
+    id_proveedor INT,
+    fecha DATE NOT NULL,
+    monto DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (id_proveedor) REFERENCES Proveedores(id_proveedor)
+);
+
+CREATE TABLE Ventas (
+    id_venta INT AUTO_INCREMENT PRIMARY KEY,
+    id_cliente INT,
+    fecha DATE NOT NULL,
+    monto DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (id_cliente) REFERENCES Clientes(id_cliente)
+);
+
+CREATE TABLE Detalle_pedidos (
+    id_pedido INT,
+    id_producto INT,
+    cantidad INT,
+    PRIMARY KEY (id_pedido, id_producto),
+    FOREIGN KEY (id_pedido) REFERENCES Pedidos(id_pedido),
+    FOREIGN KEY (id_producto) REFERENCES Productos(id_producto)
+);
+
+CREATE TABLE Detalle_ventas (
+    id_venta INT,
+    id_producto INT,
+    cantidad INT,
+    PRIMARY KEY (id_venta, id_producto),
+    FOREIGN KEY (id_venta) REFERENCES Ventas(id_venta),
+    FOREIGN KEY (id_producto) REFERENCES Productos(id_producto)
+);
+
+
+DELIMITER $$
+
+CREATE PROCEDURE insertar_pedido (
+    IN proveedor_id INT,
+    IN fecha_pedido DATE,
+    IN id_producto_1 INT,
+    IN cantidad_1 INT,
+    IN id_producto_2 INT,
+    IN cantidad_2 INT
+)
+BEGIN
+    DECLARE pedido_id INT;
+
+    INSERT INTO Pedidos (id_proveedor, fecha, monto)
+    VALUES (proveedor_id, fecha_pedido, 0);
+
+    SET pedido_id = LAST_INSERT_ID();
+
+    INSERT INTO Detalle_pedidos (id_pedido, id_producto, cantidad)
+    VALUES (pedido_id, id_producto_1, cantidad_1);
+
+    INSERT INTO Detalle_pedidos (id_pedido, id_producto, cantidad)
+    VALUES (pedido_id, id_producto_2, cantidad_2);
+END $$
+DELIMITER ;
+
+DELIMITER $$
+CREATE PROCEDURE insertar_venta (
+    IN cliente_id INT,
+    IN fecha_venta DATE,
+    IN id_producto_1 INT,
+    IN cantidad_1 INT,
+    IN id_producto_2 INT,
+    IN cantidad_2 INT
+)
+BEGIN
+    DECLARE venta_id INT;
+
+    INSERT INTO Ventas (id_cliente, fecha, monto)
+    VALUES (cliente_id, fecha_venta, 0);
+
+    SET venta_id = LAST_INSERT_ID();
+
+    INSERT INTO Detalle_ventas (id_venta, id_producto, cantidad)
+    VALUES (venta_id, id_producto_1, cantidad_1);
+
+    INSERT INTO Detalle_ventas (id_venta, id_producto, cantidad)
+    VALUES (venta_id, id_producto_2, cantidad_2);
+END $$
+DELIMITER ;
+
+
+CREATE VIEW vista_detalles_pedidos AS
+SELECT 
+    pe.id_pedido,
+    pe.fecha AS fecha_pedido,
+    pe.monto AS monto_pedido,
+    dp.id_producto,
+    dp.cantidad,
+    pr.precio_compra,
+    (dp.cantidad * pr.precio_compra) AS costo_total
+FROM Pedidos pe
+JOIN Detalle_pedidos dp ON pe.id_pedido = dp.id_pedido
+JOIN Productos pr ON dp.id_producto = pr.id_producto;
+
+CREATE VIEW vista_detalles_ventas AS
+SELECT 
+    ve.id_venta,
+    ve.fecha AS fecha_venta,
+    ve.monto AS monto_venta,
+    cl.id_cliente,
+    cl.razon_social AS cliente_razon_social,
+    dv.id_producto,
+    dv.cantidad,
+    pr.precio_venta,
+    (dv.cantidad * pr.precio_venta) AS total_producto
+FROM Ventas ve
+JOIN Clientes cl ON ve.id_cliente = cl.id_cliente
+JOIN Detalle_ventas dv ON ve.id_venta = dv.id_venta
+JOIN Productos pr ON dv.id_producto = pr.id_producto;
+
+CREATE VIEW vista_historial_ventas_cliente AS
+SELECT 
+    cl.id_cliente,
+    cl.razon_social AS cliente_razon_social,
+    cl.tipo_cliente,
+    ve.id_venta,
+    ve.fecha AS fecha_venta,
+    ve.monto AS monto_venta,
+    dv.id_producto,
+    dv.cantidad,
+    (dv.cantidad * pr.precio_venta) AS total_producto
+FROM Clientes cl
+JOIN Ventas ve ON cl.id_cliente = ve.id_cliente
+JOIN Detalle_ventas dv ON ve.id_venta = dv.id_venta
+JOIN Productos pr ON dv.id_producto = pr.id_producto;
+
+CREATE VIEW vista_historial_pedidos_proveedor AS
+SELECT 
+    pv.id_proveedor,
+    pv.razon_social AS proveedor_razon_social,
+    pv.pais AS proveedor_pais,
+    pe.id_pedido,
+    pe.fecha AS fecha_pedido,
+    pe.monto AS monto_pedido,
+    dp.id_producto,
+    dp.cantidad,
+    (dp.cantidad * pr.precio_compra) AS total_producto
+FROM Proveedores pv
+JOIN Pedidos pe ON pv.id_proveedor = pe.id_proveedor
+JOIN Detalle_pedidos dp ON pe.id_pedido = dp.id_pedido
+JOIN Productos pr ON dp.id_producto = pr.id_producto;
+
+CREATE VIEW vista_productos_mas_vendidos AS
+SELECT 
+    pr.id_producto,
+    SUM(dv.cantidad) AS total_vendido,
+    SUM(dv.cantidad * pr.precio_venta) AS total_ventas
+FROM Productos pr
+JOIN Detalle_ventas dv ON pr.id_producto = dv.id_producto
+GROUP BY pr.id_producto
+ORDER BY total_vendido DESC;
+
+
+DELIMITER $$
+
+CREATE FUNCTION calcular_ventas_producto(producto_id INT)
+RETURNS DECIMAL(10, 2)
+DETERMINISTIC
+BEGIN
+    DECLARE total_ventas DECIMAL(10, 2);
+
+    SELECT SUM(dv.cantidad * pr.precio_venta)
+    INTO total_ventas
+    FROM Detalle_ventas dv
+    JOIN Productos pr ON dv.id_producto = pr.id_producto
+    WHERE pr.id_producto = producto_id;
+
+    IF total_ventas IS NULL THEN
+        SET total_ventas = 0;
+    END IF;
+
+    RETURN total_ventas;
+END $$
+
+CREATE FUNCTION calcular_valor_stock_producto(producto_id INT)
+RETURNS DECIMAL(10, 2)
+DETERMINISTIC
+BEGIN
+    DECLARE valor_stock DECIMAL(10, 2);
+
+    SELECT (pr.stock * pr.precio_compra)
+    INTO valor_stock
+    FROM Productos pr
+    WHERE pr.id_producto = producto_id;
+
+    IF valor_stock IS NULL THEN
+        SET valor_stock = 0;
+    END IF;
+
+    RETURN valor_stock;
+END $$
+
+DELIMITER ;
+
+
+DELIMITER $$
+
+CREATE TRIGGER after_detalle_ventas_insert
+AFTER INSERT ON Detalle_ventas
+FOR EACH ROW
+BEGIN
+    DECLARE total DECIMAL(10, 2);
+
+    SELECT SUM(dv.cantidad * pr.precio_venta)
+    INTO total
+    FROM Detalle_ventas dv
+    JOIN Productos pr ON dv.id_producto = pr.id_producto
+    WHERE dv.id_venta = NEW.id_venta;
+
+    UPDATE Ventas
+    SET monto = total
+    WHERE id_venta = NEW.id_venta;
+
+    UPDATE Productos
+    SET stock = stock - NEW.cantidad
+    WHERE id_producto = NEW.id_producto;
+END $$
+
+CREATE TRIGGER after_detalle_ventas_update
+AFTER UPDATE ON Detalle_ventas
+FOR EACH ROW
+BEGIN
+    DECLARE total DECIMAL(10, 2);
+    
+    SELECT SUM(dv.cantidad * pr.precio_venta)
+    INTO total
+    FROM Detalle_ventas dv
+    JOIN Productos pr ON dv.id_producto = pr.id_producto
+    WHERE dv.id_venta = NEW.id_venta;
+
+    UPDATE Ventas
+    SET monto = total
+    WHERE id_venta = NEW.id_venta;
+
+    UPDATE Productos
+    SET stock = stock - NEW.cantidad
+    WHERE id_producto = NEW.id_producto;
+END $$
+
+DELIMITER ;

@@ -1,0 +1,60 @@
+USE empresaMuebles;
+
+
+INSERT INTO Clientes (tipo_cliente, razon_social, cuit, pais, provincia, direccion) VALUES
+('mayorista', 'Casa Deco SA',           '30-10000000-1', 'Argentina', 'Buenos Aires', 'Av. Santa Fe 1200'),
+('minorista', 'Lucía Fernández',        '27-20000000-2', 'Argentina', 'Córdoba',      'Bv. San Juan 955'),
+('minorista', 'Tomás Pereyra',          '20-30000000-3', 'Argentina', 'Santa Fe',     'San Martín 1800');
+
+
+INSERT INTO Proveedores (tipo_proveedor, razon_social, cuit, pais, provincia) VALUES
+('nacional',      'Maderas Andinas SRL',     '30-40000000-4', 'Argentina', 'Mendoza'),
+('internacional', 'GlobalFurni LTD',         '90-50000000-5', 'Brasil',    'Sao Paulo'),
+('nacional',      'Herrajes del Sur SA',     '30-60000000-6', 'Argentina', 'Buenos Aires');
+
+
+INSERT INTO Productos
+(tipo,   modelo,       color,   medida,     precio_compra, precio_venta, stock) VALUES
+('Silla','Nordic',     'Blanco','45x45x90',  15000.00,      24990.00,     60),   -- id_producto = 1
+('Silla','Industrial', 'Negro', '45x45x90',  17000.00,      27990.00,     45),   -- id_producto = 2
+('Mesa', 'Roble',      'Roble', '140x80x75', 40000.00,      65990.00,     20),   -- id_producto = 3
+('Mesa', 'Minimal',    'Gris',  '120x70x75', 35000.00,      59990.00,     25),   -- id_producto = 4
+('Sillón','Urban',     'Gris',  '200x90x85', 80000.00,      129990.00,    10),   -- id_producto = 5
+('Escritorio','Studio','Roble', '120x60x75', 30000.00,      49990.00,     30);   -- id_producto = 6
+
+
+CALL insertar_pedido(
+    1,            -- proveedor_id (Maderas Andinas SRL)
+    '2025-10-10', -- fecha_pedido
+    1,  12,       -- id_producto 1 (Silla Nordic) x12
+    3,  5         -- id_producto 3 (Mesa Roble)   x5
+);
+
+CALL insertar_pedido(
+    2,            -- proveedor_id (GlobalFurni LTD)
+    '2025-10-12',
+    2,  10,       -- Silla Industrial x10
+    6,  6         -- Escritorio Studio x6
+);
+
+
+CALL insertar_venta(
+    1,            -- cliente_id (Casa Deco SA - mayorista)
+    '2025-10-15',
+    1,  4,        -- Silla Nordic x4
+    3,  1         -- Mesa Roble  x1
+);
+
+CALL insertar_venta(
+    2,            -- cliente_id (Lucía Fernández - minorista)
+    '2025-10-16',
+    2,  2,        -- Silla Industrial x2
+    6,  1         -- Escritorio Studio x1
+);
+
+CALL insertar_venta(
+    3,            -- cliente_id (Tomás Pereyra - minorista)
+    '2025-10-18',
+    5,  1,        -- Sillón Urban x1
+    1,  2         -- Silla Nordic x2
+);
